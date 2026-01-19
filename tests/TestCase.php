@@ -61,5 +61,13 @@ abstract class TestCase extends Orchestra
         $app['config']->set('clever-bot.limits.max_tokens', 4000);
         $app['config']->set('clever-bot.logging.enabled', false);
         $app['config']->set('clever-bot.cache.enabled', false);
+
+        // Setup database for testing
+        $app['config']->set('database.default', 'testing');
+        $app['config']->set('database.connections.testing', [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+        ]);
     }
 }

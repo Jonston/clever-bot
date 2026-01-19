@@ -356,6 +356,10 @@ $response = $agent->execute("What's the weather in San Francisco?");
 
 ### Creating Custom Tools
 
+Tools are the way to extend your agent's capabilities. Here are examples of different types of tools:
+
+#### Simple Calculation Tool
+
 ```php
 use CleverBot\Tools\Tool;
 use CleverBot\Tools\ToolResult;
@@ -405,6 +409,120 @@ class CalculatorTool extends Tool
         return 42.0;
     }
 }
+```
+
+#### Database Integration Tool (Laravel)
+
+For Laravel applications, you can create tools that interact with your database:
+
+```php
+use CleverBot\Tools\Tool;
+use CleverBot\Tools\ToolResult;
+use App\Models\Product;
+
+class ListProductsTool extends Tool
+{
+    public function getName(): string
+    {
+        return 'list_products';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Get a list of all available products from the database';
+    }
+
+    public function getParameters(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => (object)[], // No parameters required
+        ];
+    }
+
+    public function execute(array $arguments): ToolResult
+    {
+        $products = Product::all()->map(function ($product) {
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'category' => $product->category,
+                'price' => $product->price,
+            ];
+        })->toArray();
+
+        return new ToolResult($products);
+    }
+}
+```
+
+```php
+class UpdateProductTool extends Tool
+{
+    public function getName(): string
+    {
+        return 'update_product';
+    }
+
+    public function getDescription(): string
+    {
+        return 'Update a product in the database';
+    }
+
+    public function getParameters(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'id' => [
+                    'type' => 'integer',
+                    'description' => 'The product ID to update',
+                ],
+                'updates' => [
+                    'type' => 'object',
+                    'description' => 'Fields to update',
+                    'properties' => [
+                        'price' => ['type' => 'number'],
+                        'discount' => ['type' => 'number'],
+                    ],
+                ],
+            ],
+            'required' => ['id', 'updates'],
+        ];
+    }
+
+    public function execute(array $arguments): ToolResult
+    {
+        $product = Product::findOrFail($arguments['id']);
+        $product->update($arguments['updates']);
+
+        return new ToolResult([
+            'id' => $product->id,
+            'updated' => true,
+            'product' => $product->toArray(),
+        ]);
+    }
+}
+```
+
+**Usage Example**:
+```php
+use CleverBot\Facades\CleverBot;
+
+$agent = CleverBot::withTools([
+    new ListProductsTool(),
+    new UpdateProductTool(),
+]);
+
+$response = $agent->execute(
+    'Apply a 10% discount to all smartphones priced over $1000'
+);
+
+// The agent will:
+// 1. Call list_products to fetch all products
+// 2. Analyze which products match the criteria
+// 3. Call update_product for each matching product
+// 4. Return a natural language response
 ```
 
 ### Using Different Models
@@ -663,6 +781,9 @@ composer test
 
 # Run with detailed output
 ./vendor/bin/phpunit --testdox
+
+# Run specific test file
+./vendor/bin/phpunit tests/Feature/GeminiAgentTest.php
 ```
 
 Test coverage includes:
@@ -671,34 +792,40 @@ Test coverage includes:
 - Facade functionality
 - Event dispatching
 - Command registration
+- **Gemini Agent with real database integration** (see GeminiAgentTest)
 
-#### Legacy Tests (Standalone PHP)
+#### Gemini Agent Database Integration Test
 
-Run individual model tests:
-```bash
-# Test OpenAI integration
-php tests/test-runner.php openai
+The `GeminiAgentTest` demonstrates a real-world scenario where the Gemini agent:
 
-# Test Anthropic integration
-php tests/test-runner.php anthropic
+1. **Creates test data**: Dynamically creates 5 products in SQLite database
+   - 2 smartphones over $1000 (iPhone 15 Pro, Samsung Galaxy S24 Ultra)
+   - 1 smartphone under $1000 (Google Pixel 8)
+   - 2 other category products (MacBook Pro, Sony headphones)
 
-# Test Gemini integration
-php tests/test-runner.php gemini
+2. **Executes tools sequentially**:
+   - Calls `list_products` to fetch all products from database
+   - Analyzes which products match criteria (smartphones > $1000)
+   - Calls `update_product` twice in parallel to apply 10% discount
 
-# Test agent integration
-php tests/test-runner.php agent
+3. **Verifies results**:
+   - Checks that both expensive smartphones received discount
+   - Confirms cheaper products were not modified
+   - Validates the exact discount amounts in database
 
-# Run all tests
-php tests/test-runner.php all
-```
+This test showcases:
+- Real database integration with Eloquent models
+- Sequential tool execution (list → analyze → update)
+- Parallel tool calls (updating multiple products)
+- Database migrations and transactions with RefreshDatabase trait
 
-### Test Files
-
-- `tests/test-openai.php` - OpenAI model functionality
-- `tests/test-anthropic.php` - Anthropic model functionality
-- `tests/test-gemini.php` - Gemini model functionality
-- `tests/test-agent.php` - Full agent integration testing
+**Files involved**:
+- `tests/Feature/GeminiAgentTest.php` - Main test file
+- `database/migrations/2026_01_19_000001_create_products_table.php` - Products table migration
+- `src/Models/Product.php` - Eloquent Product model
+- `src/Tools/ListProductsTool.php` - Tool for listing products from DB
+- `src/Tools/UpdateProductTool.php` - Tool for updating products in DB
 
 ---
 
-**Note**: When `TEST_MODE=true` in `.env`, all models will use mock responses for testing. Set to `false` to use real API calls.
+**Note**: Tests use SQLite in-memory database by default for speed. The test data is created dynamically in each test method using Laravel factories and Eloquent models.
