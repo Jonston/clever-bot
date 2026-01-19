@@ -50,6 +50,6 @@ final readonly class ToolResult
             return $this->data;
         }
 
-        return json_encode($this->data, JSON_PRETTY_PRINT);
+        return json_encode($this->data, JSON_PRETTY_PRINT) ?: 'null';
     }
 }

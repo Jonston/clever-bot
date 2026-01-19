@@ -186,7 +186,7 @@ class Agent
         }
 
         if (is_array($result) || is_object($result)) {
-            return json_encode($result, JSON_PRETTY_PRINT);
+            return json_encode($result, JSON_PRETTY_PRINT) ?: 'null';
         }
 
         return (string) $result;

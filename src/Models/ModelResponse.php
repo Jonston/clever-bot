@@ -60,10 +60,11 @@ final readonly class ModelResponse
 
         if (isset($message['tool_calls'])) {
             foreach ($message['tool_calls'] as $toolCall) {
+                $arguments = json_decode($toolCall['function']['arguments'], true);
                 $toolCalls[] = new ToolCall(
                     id: $toolCall['id'],
                     name: $toolCall['function']['name'],
-                    arguments: json_decode($toolCall['function']['arguments'], true)
+                    arguments: is_array($arguments) ? $arguments : []
                 );
             }
         }
