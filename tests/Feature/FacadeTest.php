@@ -22,16 +22,22 @@ class FacadeTest extends TestCase
 
     public function test_facade_can_access_with_tools_method(): void
     {
-        $this->assertTrue(method_exists(CleverBot::class, 'withTools'));
+        $factory = CleverBot::getFacadeRoot();
+        
+        $this->assertTrue(method_exists($factory, 'withTools'));
     }
 
     public function test_facade_can_access_with_model_method(): void
     {
-        $this->assertTrue(method_exists(CleverBot::class, 'withModel'));
+        $factory = CleverBot::getFacadeRoot();
+        
+        $this->assertTrue(method_exists($factory, 'withModel'));
     }
 
     public function test_facade_can_access_ask_method(): void
     {
-        $this->assertTrue(method_exists(CleverBot::class, 'ask'));
+        $factory = CleverBot::getFacadeRoot();
+        
+        $this->assertTrue(method_exists($factory, 'ask'));
     }
 }

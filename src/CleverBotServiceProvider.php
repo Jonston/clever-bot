@@ -112,7 +112,7 @@ class CleverBotServiceProvider extends ServiceProvider
                     config('clever-bot.limits.max_messages', 50),
                     config('clever-bot.limits.max_tokens')
                 ),
-                config: new AgentConfig([])
+                config: new AgentConfig()
             );
         });
 

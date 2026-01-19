@@ -105,7 +105,7 @@ class EventsTest extends TestCase
             model: $model,
             toolRegistry: new ToolRegistry(),
             messageManager: new MessageManager(50),
-            config: new AgentConfig([])
+            config: new AgentConfig()
         );
 
         try {
@@ -129,7 +129,7 @@ class EventsTest extends TestCase
             model: $model,
             toolRegistry: new ToolRegistry(),
             messageManager: new MessageManager(50),
-            config: new AgentConfig([])
+            config: new AgentConfig()
         );
     }
 }

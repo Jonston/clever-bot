@@ -56,7 +56,8 @@ class ServiceProviderTest extends TestCase
 
     public function test_commands_are_registered(): void
     {
-        $commands = $this->app['artisan']->all();
+        $artisan = $this->app->make(\Illuminate\Contracts\Console\Kernel::class);
+        $commands = $artisan->all();
 
         $this->assertArrayHasKey('clever-bot:install', $commands);
         $this->assertArrayHasKey('clever-bot:test', $commands);
