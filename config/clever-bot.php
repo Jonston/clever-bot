@@ -87,4 +87,60 @@ return [
         'enabled' => env('CLEVER_BOT_LOGGING_ENABLED', true),
         'channel' => env('CLEVER_BOT_LOG_CHANNEL', 'stack'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tools Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Register tools that will be automatically available to all agents.
+    | You can specify tool classes directly or with constructor parameters.
+    |
+    | Examples:
+    | - Simple: \App\CleverBot\Tools\GetWeatherTool::class
+    | - With params: \App\CleverBot\Tools\DatabaseTool::class => ['connection' => 'mysql']
+    |
+    */
+    'tools' => [
+        // Example tools (commented out by default)
+        // \App\CleverBot\Tools\GetWeatherTool::class,
+        // \App\CleverBot\Tools\SearchTool::class,
+        // \App\CleverBot\Tools\DatabaseQueryTool::class => [
+        //     'connection' => 'mysql',
+        //     'max_results' => 100,
+        // ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tool Presets
+    |--------------------------------------------------------------------------
+    |
+    | Define named sets of tools for different use cases. This allows you
+    | to easily create agents with specific capabilities.
+    |
+    | Usage: $builder->buildFromConfig('support') // loads only support tools
+    |
+    */
+    'tool_presets' => [
+        'support' => [
+            // Example: customer support tools
+            // \App\CleverBot\Tools\GetOrderStatusTool::class,
+            // \App\CleverBot\Tools\CreateTicketTool::class,
+            // \App\CleverBot\Tools\SearchKnowledgeBaseTool::class,
+        ],
+        
+        'sales' => [
+            // Example: sales assistant tools
+            // \App\CleverBot\Tools\SearchProductsTool::class,
+            // \App\CleverBot\Tools\CheckInventoryTool::class,
+            // \App\CleverBot\Tools\CalculateDiscountTool::class,
+        ],
+        
+        'admin' => [
+            // Example: admin tools
+            // \App\CleverBot\Tools\GenerateReportTool::class,
+            // \App\CleverBot\Tools\AnalyzeDataTool::class,
+        ],
+    ],
 ];

@@ -15,6 +15,7 @@ use CleverBot\Models\GeminiModel;
 use CleverBot\Models\ModelInterface;
 use CleverBot\Models\OpenAIModel;
 use CleverBot\Tools\ToolRegistry;
+use CleverBot\Tools\ToolRegistryBuilder;
 use Illuminate\Support\ServiceProvider;
 
 /**
@@ -55,9 +56,15 @@ class CleverBotServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Register ToolRegistry as singleton
+        // Register ToolRegistryBuilder as singleton
+        $this->app->singleton(ToolRegistryBuilder::class, function ($app) {
+            return new ToolRegistryBuilder($app);
+        });
+
+        // Register ToolRegistry - created through builder from config
         $this->app->singleton(ToolRegistry::class, function ($app) {
-            return new ToolRegistry();
+            return $app->make(ToolRegistryBuilder::class)
+                       ->buildFromConfig(); // Loads tools from config
         });
 
         // Register ModelInterface with default provider from config
@@ -107,7 +114,7 @@ class CleverBotServiceProvider extends ServiceProvider
             return new Agent(
                 name: 'default',
                 model: $app->make(ModelInterface::class),
-                toolRegistry: $app->make(ToolRegistry::class),
+                toolRegistry: $app->make(ToolRegistry::class), // Now with tools from config
                 messageManager: new MessageManager(
                     config('clever-bot.limits.max_messages', 50),
                     config('clever-bot.limits.max_tokens')
