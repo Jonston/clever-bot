@@ -7,9 +7,32 @@
         "illuminate/support": "^10.0|^11.0",
         "guzzlehttp/guzzle": "^7.0"
     },
+    "require-dev": {
+        "orchestra/testbench": "^9.0",
+        "phpunit/phpunit": "^10.5",
+        "mockery/mockery": "^1.6"
+    },
     "autoload": {
         "psr-4": {
             "CleverBot\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "CleverBot\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "CleverBot\\CleverBotServiceProvider"
+            ],
+            "aliases": {
+                "CleverBot": "CleverBot\\Facades\\CleverBot"
+            }
         }
     },
     "minimum-stability": "stable"
