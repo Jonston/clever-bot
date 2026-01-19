@@ -12,11 +12,25 @@ use Orchestra\Testbench\TestCase as Orchestra;
  */
 abstract class TestCase extends Orchestra
 {
+
     /**
      * Setup the test environment
      */
     protected function setUp(): void
     {
+        // Load .env file for testing
+        $envFile = __DIR__ . '/../.env';
+        if (file_exists($envFile)) {
+            $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            foreach ($lines as $line) {
+                if (strpos($line, '=') !== false && !str_starts_with($line, '#')) {
+                    [$key, $value] = explode('=', $line, 2);
+                    putenv("$key=$value");
+                    $_ENV[$key] = $value;
+                }
+            }
+        }
+        
         parent::setUp();
     }
 
@@ -53,6 +67,9 @@ abstract class TestCase extends Orchestra
      */
     protected function getEnvironmentSetUp($app): void
     {
+        // Load environment variables from .env file
+        $app->loadEnvironmentFrom('.env');
+        
         // Setup default configuration values
         $app['config']->set('clever-bot.default_provider', 'gemini');
         $app['config']->set('clever-bot.providers.gemini.api_key', 'test-key');

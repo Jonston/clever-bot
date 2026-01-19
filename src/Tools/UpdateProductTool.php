@@ -41,6 +41,10 @@ class UpdateProductTool extends Tool
                         'category' => ['type' => 'string'],
                         'price' => ['type' => 'number'],
                         'discount' => ['type' => 'number'],
+                        'discount_percent' => [
+                            'type' => 'number',
+                            'description' => 'Percentage discount to apply (will calculate absolute discount from current price)',
+                        ],
                     ],
                 ],
             ],
@@ -59,6 +63,13 @@ class UpdateProductTool extends Tool
         $updates = $arguments['updates'];
 
         $product = Product::findOrFail($id);
+
+        // Handle discount_percent by calculating absolute discount
+        if (isset($updates['discount_percent'])) {
+            $updates['discount'] = $product->price * ($updates['discount_percent'] / 100);
+            unset($updates['discount_percent']);
+        }
+
         $product->update($updates);
 
         return new ToolResult([

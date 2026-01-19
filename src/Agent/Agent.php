@@ -195,7 +195,7 @@ class Agent
             }
 
             if ($this->config->verbose) {
-                echo "Calling tool: {$toolCall->name} with arguments: " . json_encode($toolCall->arguments) . "\n";
+                file_put_contents('php://stderr', "Calling tool: {$toolCall->name} with arguments: " . json_encode($toolCall->arguments) . "\n");
             }
 
             $toolStartTime = microtime(true);
@@ -223,7 +223,7 @@ class Agent
                 $this->toolsExecutedCount++;
 
                 if ($this->config->verbose) {
-                    echo "Tool result: {$resultString}\n";
+                    file_put_contents('php://stderr', "Tool result: {$resultString}\n");
                 }
             } catch (\Throwable $e) {
                 // Wrap in ToolExecutionException if not already
