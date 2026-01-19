@@ -34,8 +34,7 @@ class Agent
         private readonly ToolRegistry $toolRegistry,
         private readonly MessageManager $messageManager,
         private readonly AgentConfig $config = new AgentConfig()
-    ) {
-    }
+    ) {}
 
     /**
      * Execute the agent with the given input

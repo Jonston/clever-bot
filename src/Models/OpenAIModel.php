@@ -41,21 +41,63 @@ class OpenAIModel implements ModelInterface
             $payload['tool_choice'] = 'auto';
         }
 
-        // HERE: HTTP request to OpenAI API would be made
-        // Example:
-        // $response = $this->httpClient->post('https://api.openai.com/v1/chat/completions', [
-        //     'headers' => [
-        //         'Authorization' => 'Bearer ' . $this->apiKey,
-        //         'Content-Type' => 'application/json',
-        //     ],
-        //     'json' => $payload,
-        // ]);
-        // $responseData = json_decode($response->getBody(), true);
+        // Make HTTP request to OpenAI API (or use mock for testing)
+        if ($this->isTestKey()) {
+            $mockResponse = $this->createMockResponse($messages, $toolDefinitions);
+            return ModelResponse::fromOpenAI($mockResponse);
+        }
 
-        // Mock response for demonstration
-        $mockResponse = $this->createMockResponse($messages, $toolDefinitions);
+        $responseData = $this->makeApiRequest('https://api.openai.com/v1/chat/completions', $payload);
 
-        return ModelResponse::fromOpenAI($mockResponse);
+        return ModelResponse::fromOpenAI($responseData);
+    }
+
+    /**
+     * Make HTTP request to OpenAI API
+     *
+     * @param string $url
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     * @throws \RuntimeException
+     */
+    private function makeApiRequest(string $url, array $payload): array
+    {
+        $client = new \GuzzleHttp\Client([
+            'timeout' => 60,
+        ]);
+
+        try {
+            $response = $client->post($url, [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $payload,
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \RuntimeException('Failed to decode OpenAI API response: ' . json_last_error_msg());
+            }
+
+            return $data;
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $message = $e->getMessage();
+            if ($e->hasResponse()) {
+                $message .= ': ' . $e->getResponse()->getBody()->getContents();
+            }
+            throw new \RuntimeException('OpenAI API request failed: ' . $message);
+        }
+    }
+
+    /**
+     * Check if the API key is a test key that should use mock responses
+     *
+     * @return bool
+     */
+    private function isTestKey(): bool
+    {
+        return getenv('TEST_MODE') === 'true' || str_starts_with($this->apiKey, 'test-');
     }
 
     /**

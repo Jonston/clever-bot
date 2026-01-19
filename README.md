@@ -4,16 +4,17 @@ Laravel AI Agent package with multi-model support and extensible tool system.
 
 ## Overview
 
-Clever Bot is a flexible PHP library for building AI agents that can interact with multiple Large Language Models (LLMs) and execute tools/functions. It provides a clean abstraction layer over different AI providers (OpenAI, Anthropic) and a robust system for tool integration.
+Clever Bot is a flexible PHP library for building AI agents that can interact with multiple Large Language Models (LLMs) and execute tools/functions. It provides a clean abstraction layer over different AI providers (OpenAI, Anthropic, Gemini) and a robust system for tool integration.
 
 ## Features
 
-- 🤖 **Multi-Model Support**: Seamlessly switch between OpenAI and Anthropic models
+- 🤖 **Multi-Model Support**: Seamlessly switch between OpenAI, Anthropic, and Gemini models
 - 🛠️ **Extensible Tool System**: Easy-to-use tool/function calling interface
 - 💬 **Message Management**: Built-in conversation history with configurable limits
 - 🔄 **Recursive Execution**: Automatic handling of multi-turn tool interactions
 - 🎯 **Type-Safe**: Full PHP 8.1+ type safety with strict typing
 - 🏗️ **Clean Architecture**: Well-structured, PSR-4 compliant codebase
+- 🌐 **Real API Integration**: Production-ready HTTP clients using Guzzle for all supported models
 
 ## Architecture
 
@@ -22,7 +23,7 @@ Clever Bot is a flexible PHP library for building AI agents that can interact wi
 | Component | Responsibility | Key Files |
 |-----------|---------------|-----------|
 | **Agent** | Main orchestrator that coordinates model, tools, and messages | `Agent.php`, `AgentConfig.php`, `AgentResponse.php` |
-| **Models** | Abstraction layer for different LLM providers | `ModelInterface.php`, `OpenAIModel.php`, `AnthropicModel.php` |
+| **Models** | Abstraction layer for different LLM providers | `ModelInterface.php`, `OpenAIModel.php`, `AnthropicModel.php`, `GeminiModel.php` |
 | **Tools** | System for registering and executing agent capabilities | `ToolRegistry.php`, `ToolInterface.php`, `Tool.php` |
 | **Messages** | Conversation history management with limits | `MessageManager.php`, `Message.php` |
 
@@ -377,6 +378,50 @@ This package is open-sourced software licensed under the MIT license.
 
 Developed by Jonston
 
+## Testing
+
+### Setup
+
+1. Copy the environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Edit `.env` and add your API keys:
+   ```env
+   OPENAI_API_KEY=your-openai-api-key
+   ANTHROPIC_API_KEY=your-anthropic-api-key
+   GEMINI_API_KEY=your-gemini-api-key
+   TEST_MODE=false  # Set to true for mock responses
+   ```
+
+### Running Tests
+
+Run individual model tests:
+```bash
+# Test OpenAI integration
+php tests/test-runner.php openai
+
+# Test Anthropic integration
+php tests/test-runner.php anthropic
+
+# Test Gemini integration
+php tests/test-runner.php gemini
+
+# Test agent integration
+php tests/test-runner.php agent
+
+# Run all tests
+php tests/test-runner.php all
+```
+
+### Test Files
+
+- `tests/test-openai.php` - OpenAI model functionality
+- `tests/test-anthropic.php` - Anthropic model functionality
+- `tests/test-gemini.php` - Gemini model functionality
+- `tests/test-agent.php` - Full agent integration testing
+
 ---
 
-**Note**: This package currently uses mock API responses for demonstration. To use with real LLM APIs, you'll need to implement the HTTP client calls in the respective model classes where indicated by comments.
+**Note**: When `TEST_MODE=true` in `.env`, all models will use mock responses for testing. Set to `false` to use real API calls.

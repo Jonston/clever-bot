@@ -51,22 +51,64 @@ class AnthropicModel implements ModelInterface
             $payload['tools'] = $this->transformToolDefinitions($toolDefinitions);
         }
 
-        // HERE: HTTP request to Anthropic API would be made
-        // Example:
-        // $response = $this->httpClient->post('https://api.anthropic.com/v1/messages', [
-        //     'headers' => [
-        //         'x-api-key' => $this->apiKey,
-        //         'anthropic-version' => '2023-06-01',
-        //         'Content-Type' => 'application/json',
-        //     ],
-        //     'json' => $payload,
-        // ]);
-        // $responseData = json_decode($response->getBody(), true);
+        // Make HTTP request to Anthropic API (or use mock for testing)
+        if ($this->isTestKey()) {
+            $mockResponse = $this->createMockResponse($messages, $toolDefinitions);
+            return ModelResponse::fromAnthropic($mockResponse);
+        }
 
-        // Mock response for demonstration
-        $mockResponse = $this->createMockResponse($messages, $toolDefinitions);
+        $responseData = $this->makeApiRequest('https://api.anthropic.com/v1/messages', $payload);
 
-        return ModelResponse::fromAnthropic($mockResponse);
+        return ModelResponse::fromAnthropic($responseData);
+    }
+
+    /**
+     * Make HTTP request to Anthropic API
+     *
+     * @param string $url
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     * @throws \RuntimeException
+     */
+    private function makeApiRequest(string $url, array $payload): array
+    {
+        $client = new \GuzzleHttp\Client([
+            'timeout' => 60,
+        ]);
+
+        try {
+            $response = $client->post($url, [
+                'headers' => [
+                    'x-api-key' => $this->apiKey,
+                    'anthropic-version' => '2023-06-01',
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $payload,
+            ]);
+
+            $data = json_decode($response->getBody()->getContents(), true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \RuntimeException('Failed to decode Anthropic API response: ' . json_last_error_msg());
+            }
+
+            return $data;
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $message = $e->getMessage();
+            if ($e->hasResponse()) {
+                $message .= ': ' . $e->getResponse()->getBody()->getContents();
+            }
+            throw new \RuntimeException('Anthropic API request failed: ' . $message);
+        }
+    }
+
+    /**
+     * Check if the API key is a test key that should use mock responses
+     *
+     * @return bool
+     */
+    private function isTestKey(): bool
+    {
+        return getenv('TEST_MODE') === 'true' || str_starts_with($this->apiKey, 'test-');
     }
 
     /**

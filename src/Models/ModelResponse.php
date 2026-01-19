@@ -115,4 +115,41 @@ final readonly class ModelResponse
             ]
         );
     }
+
+    /**
+     * Create ModelResponse from Gemini API response format
+     *
+     * @param array<string, mixed> $response
+     */
+    public static function fromGemini(array $response): self
+    {
+        $content = null;
+        $toolCalls = [];
+
+        $candidate = $response['candidates'][0] ?? [];
+        if (isset($candidate['content']['parts'])) {
+            foreach ($candidate['content']['parts'] as $part) {
+                if (isset($part['text'])) {
+                    $content = ($content ?? '') . $part['text'];
+                } elseif (isset($part['functionCall'])) {
+                    $functionCall = $part['functionCall'];
+                    $toolCalls[] = new ToolCall(
+                        id: $functionCall['name'] . '_' . uniqid(), // Gemini may not have id, generate one
+                        name: $functionCall['name'],
+                        arguments: $functionCall['args'] ?? []
+                    );
+                }
+            }
+        }
+
+        return new self(
+            content: $content,
+            toolCalls: $toolCalls,
+            metadata: [
+                'model' => $response['modelVersion'] ?? null,
+                'usage' => $response['usageMetadata'] ?? null,
+                'finish_reason' => $candidate['finishReason'] ?? null,
+            ]
+        );
+    }
 }
