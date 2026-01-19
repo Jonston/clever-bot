@@ -4,12 +4,21 @@ declare(strict_types=1);
 
 namespace CleverBot\Agent;
 
+use CleverBot\Events\AgentCompleted;
+use CleverBot\Events\AgentFailed;
+use CleverBot\Events\AgentResponding;
+use CleverBot\Events\AgentStarted;
+use CleverBot\Events\AgentThinking;
+use CleverBot\Events\ToolExecuted;
+use CleverBot\Events\ToolExecuting;
+use CleverBot\Exceptions\ToolExecutionException;
 use CleverBot\Messages\Message;
 use CleverBot\Messages\MessageManager;
 use CleverBot\Models\ModelInterface;
 use CleverBot\Models\ModelResponse;
 use CleverBot\Tools\ToolRegistry;
 use CleverBot\Tools\ToolResult;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Main agent orchestrator that coordinates model, tools, and messages
@@ -20,6 +29,10 @@ class Agent
     
     /** @var array<array<string, mixed>> */
     private array $toolCallHistory = [];
+    
+    private int $toolsExecutedCount = 0;
+    
+    private float $executionStartTime = 0;
 
     /**
      * @param string $name Agent name/identifier
@@ -44,19 +57,47 @@ class Agent
      */
     public function execute(string|Message $input): AgentResponse
     {
+        $this->executionStartTime = microtime(true);
+        
         // Reset iteration counter for new execution
         $this->currentIteration = 0;
         $this->toolCallHistory = [];
+        $this->toolsExecutedCount = 0;
 
-        // Add user message to conversation
-        if ($input instanceof Message) {
-            $this->messageManager->addUserMessage($input->content);
-        } else {
-            $this->messageManager->addUserMessage($input);
+        try {
+            // Dispatch AgentStarted event
+            if (function_exists('event')) {
+                event(new AgentStarted($this->name, $input, new \DateTime()));
+            }
+
+            // Add user message to conversation
+            if ($input instanceof Message) {
+                $this->messageManager->addUserMessage($input->content);
+            } else {
+                $this->messageManager->addUserMessage($input);
+            }
+
+            // Start the agent loop
+            return $this->executeLoop();
+            
+        } catch (\Throwable $e) {
+            // Dispatch AgentFailed event
+            if (function_exists('event')) {
+                event(new AgentFailed($this->name, $e, new \DateTime()));
+            }
+
+            // Log the error if logging is enabled
+            if (function_exists('config') && config('clever-bot.logging.enabled', false)) {
+                Log::channel(config('clever-bot.logging.channel', 'stack'))
+                    ->error('Agent execution failed', [
+                        'agent' => $this->name,
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString(),
+                    ]);
+            }
+
+            throw $e;
         }
-
-        // Start the agent loop
-        return $this->executeLoop();
     }
 
     /**
@@ -80,6 +121,15 @@ class Agent
         // Get tool definitions
         $toolDefinitions = $this->toolRegistry->getDefinitions();
 
+        // Dispatch AgentThinking event
+        if (function_exists('event')) {
+            event(new AgentThinking(
+                $this->name,
+                count($this->messageManager->getMessagesArray()),
+                count($toolDefinitions) > 0
+            ));
+        }
+
         // Generate model response
         $modelResponse = $this->model->generate(
             $this->messageManager->getMessagesArray(),
@@ -97,7 +147,12 @@ class Agent
         // Add assistant message to history
         $this->messageManager->addAssistantMessage($content);
 
-        return new AgentResponse(
+        // Dispatch AgentResponding event
+        if (function_exists('event')) {
+            event(new AgentResponding($this->name, $content, new \DateTime()));
+        }
+
+        $agentResponse = new AgentResponse(
             content: $content,
             metadata: [
                 'iterations' => $this->currentIteration,
@@ -105,6 +160,18 @@ class Agent
                 'model_metadata' => $modelResponse->metadata,
             ]
         );
+
+        // Dispatch AgentCompleted event
+        if (function_exists('event')) {
+            event(new AgentCompleted(
+                $this->name,
+                microtime(true) - $this->executionStartTime,
+                $this->toolsExecutedCount,
+                $agentResponse
+            ));
+        }
+
+        return $agentResponse;
     }
 
     /**
@@ -122,13 +189,27 @@ class Agent
                 'arguments' => $toolCall->arguments,
             ];
 
+            // Dispatch ToolExecuting event
+            if (function_exists('event')) {
+                event(new ToolExecuting($toolCall->name, $toolCall->arguments, new \DateTime()));
+            }
+
             if ($this->config->verbose) {
                 echo "Calling tool: {$toolCall->name} with arguments: " . json_encode($toolCall->arguments) . "\n";
             }
 
+            $toolStartTime = microtime(true);
+
             try {
                 // Execute the tool
                 $result = $this->toolRegistry->execute($toolCall->name, $toolCall->arguments);
+                
+                $executionTime = microtime(true) - $toolStartTime;
+                
+                // Dispatch ToolExecuted event
+                if (function_exists('event')) {
+                    event(new ToolExecuted($toolCall->name, $result, $executionTime));
+                }
                 
                 // Convert result to string
                 $resultString = $this->formatToolResult($result);
@@ -139,22 +220,23 @@ class Agent
                     'content' => $resultString,
                 ];
 
+                $this->toolsExecutedCount++;
+
                 if ($this->config->verbose) {
                     echo "Tool result: {$resultString}\n";
                 }
-            } catch (\Exception $e) {
-                // Handle tool execution errors
-                $errorMessage = "Error executing tool {$toolCall->name}: {$e->getMessage()}";
-                
-                $toolResults[] = [
-                    'tool_call_id' => $toolCall->id,
-                    'name' => $toolCall->name,
-                    'content' => $errorMessage,
-                ];
-
-                if ($this->config->verbose) {
-                    echo "Tool error: {$errorMessage}\n";
+            } catch (\Throwable $e) {
+                // Wrap in ToolExecutionException if not already
+                if (!($e instanceof ToolExecutionException)) {
+                    throw new ToolExecutionException(
+                        "Tool execution failed: {$e->getMessage()}",
+                        $toolCall->name,
+                        $toolCall->arguments,
+                        $e
+                    );
                 }
+                
+                throw $e;
             }
         }
 

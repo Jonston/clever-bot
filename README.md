@@ -89,12 +89,208 @@ Clever Bot is a flexible PHP library for building AI agents that can interact wi
 composer require jonston/clever-bot
 ```
 
+### Laravel Integration
+
+If you're using Laravel, the package will automatically register its service provider. To set up the package:
+
+1. **Publish the configuration file:**
+
+```bash
+php artisan vendor:publish --tag=clever-bot-config
+```
+
+Or use the install command:
+
+```bash
+php artisan clever-bot:install
+```
+
+2. **Add your API keys to `.env`:**
+
+```env
+# Choose your default provider
+CLEVER_BOT_PROVIDER=openai
+
+# Add your API keys
+OPENAI_API_KEY=your-openai-key-here
+ANTHROPIC_API_KEY=your-anthropic-key-here
+GEMINI_API_KEY=your-gemini-key-here
+
+# Optional: Customize models
+OPENAI_MODEL=gpt-4
+ANTHROPIC_MODEL=claude-3-opus-20240229
+GEMINI_MODEL=gemini-2.5-flash
+
+# Optional: Configure logging
+CLEVER_BOT_LOGGING_ENABLED=true
+CLEVER_BOT_LOG_CHANNEL=stack
+
+# Optional: Configure caching
+CLEVER_BOT_CACHE_ENABLED=true
+CLEVER_BOT_CACHE_DRIVER=redis
+```
+
+3. **Test your connection:**
+
+```bash
+php artisan clever-bot:test
+# Or test a specific provider
+php artisan clever-bot:test openai
+```
+
 ## Requirements
 
 - PHP 8.1 or higher
 - Laravel 10.x or 11.x (optional, uses illuminate/support)
 
-## Usage
+## Laravel Usage
+
+### Using the Facade
+
+The easiest way to use Clever Bot in Laravel is through the facade:
+
+```php
+use CleverBot\Facades\CleverBot;
+
+// Simple question
+$response = CleverBot::ask("What is the capital of France?");
+echo $response->getContent();
+
+// Using specific tools
+use CleverBot\Tools\Examples\GetWeatherTool;
+
+$agent = CleverBot::withTools([
+    new GetWeatherTool(),
+]);
+
+$response = $agent->execute("What's the weather in London?");
+echo $response->getContent();
+
+// Using a different model
+$agent = CleverBot::withModel('anthropic', 'claude-3-sonnet-20240229');
+$response = $agent->execute("Explain quantum computing");
+echo $response->getContent();
+```
+
+### Dependency Injection
+
+You can also inject the dependencies directly:
+
+```php
+use CleverBot\Agent\Agent;
+use CleverBot\AgentFactory;
+
+class ChatController extends Controller
+{
+    public function __construct(
+        private AgentFactory $agentFactory
+    ) {}
+    
+    public function ask(Request $request)
+    {
+        $response = $this->agentFactory->ask($request->input('question'));
+        
+        return response()->json([
+            'answer' => $response->getContent(),
+            'metadata' => $response->metadata,
+        ]);
+    }
+}
+```
+
+### Listening to Events
+
+Clever Bot dispatches events during execution that you can listen to:
+
+```php
+// In your EventServiceProvider.php
+use CleverBot\Events\{
+    AgentStarted,
+    AgentThinking,
+    ToolExecuting,
+    ToolExecuted,
+    AgentResponding,
+    AgentCompleted,
+    AgentFailed
+};
+
+protected $listen = [
+    AgentStarted::class => [
+        LogAgentExecution::class,
+    ],
+    AgentFailed::class => [
+        NotifyAdminOfFailure::class,
+    ],
+    ToolExecuted::class => [
+        RecordToolUsage::class,
+    ],
+];
+```
+
+Example listener:
+
+```php
+namespace App\Listeners;
+
+use CleverBot\Events\AgentCompleted;
+use Illuminate\Support\Facades\Log;
+
+class LogAgentExecution
+{
+    public function handle(AgentCompleted $event): void
+    {
+        Log::info('Agent execution completed', [
+            'agent' => $event->agentName,
+            'duration' => $event->totalTime,
+            'tools_used' => $event->toolsExecuted,
+        ]);
+    }
+}
+```
+
+### Configuration
+
+After publishing, you can customize the package behavior in `config/clever-bot.php`:
+
+```php
+return [
+    // Default AI provider
+    'default_provider' => env('CLEVER_BOT_PROVIDER', 'openai'),
+    
+    // Provider configurations
+    'providers' => [
+        'openai' => [
+            'api_key' => env('OPENAI_API_KEY'),
+            'model' => env('OPENAI_MODEL', 'gpt-4'),
+            'temperature' => 0.7,
+            'max_tokens' => 4000,
+        ],
+        // ... other providers
+    ],
+    
+    // Limits
+    'limits' => [
+        'max_messages' => 50,
+        'max_tokens' => 4000,
+    ],
+    
+    // Cache settings
+    'cache' => [
+        'enabled' => true,
+        'driver' => env('CLEVER_BOT_CACHE_DRIVER', 'redis'),
+        'ttl' => 3600,
+        'prefix' => 'clever_bot',
+    ],
+    
+    // Logging
+    'logging' => [
+        'enabled' => true,
+        'channel' => env('CLEVER_BOT_LOG_CHANNEL', 'stack'),
+    ],
+];
+```
+
+## Standalone PHP Usage
 
 ### Basic Usage
 
@@ -321,19 +517,41 @@ Message management system:
 - **Message**: Immutable value object for messages
 - Supports roles: user, assistant, system, tool
 
+### Events (Laravel)
+
+When using Laravel, Clever Bot dispatches events during agent execution:
+
+- **AgentStarted**: Dispatched when an agent begins execution
+- **AgentThinking**: Dispatched before the model generates a response
+- **ToolExecuting**: Dispatched before a tool is executed
+- **ToolExecuted**: Dispatched after a tool completes execution
+- **AgentResponding**: Dispatched before the agent returns a response
+- **AgentCompleted**: Dispatched when execution completes successfully
+- **AgentFailed**: Dispatched when an error occurs during execution
+
+All events are located in the `CleverBot\Events` namespace and can be listened to using Laravel's event system.
+
+### Exceptions
+
+The package provides a hierarchy of exceptions for better error handling:
+
+- **CleverBotException**: Base exception for all package exceptions
+- **ModelException**: Thrown when model operations fail (API errors, invalid responses)
+- **ToolExecutionException**: Thrown when tool execution fails
+- **ConfigurationException**: Thrown when configuration is invalid or incomplete
+
 ## Current Limitations
 
-This is a foundational implementation focused on core architecture. The following are **not** currently implemented:
+This is a foundational implementation focused on core architecture. The following features are **not** currently implemented but can be added in future versions:
 
-- ❌ Real HTTP clients (mock responses are used)
 - ❌ Streaming responses
-- ❌ Database persistence
+- ❌ Database persistence for conversation history
 - ❌ Multi-agent systems
-- ❌ Token counting for message trimming
-- ❌ Authentication/authorization layers
+- ❌ Token counting for intelligent message trimming
 - ❌ Rate limiting
+- ❌ Built-in authentication/authorization layers
 
-These features can be added in future versions based on requirements.
+**Note**: Real HTTP clients with Guzzle are now implemented for all supported models (OpenAI, Anthropic, Gemini).
 
 ## Development
 
@@ -378,6 +596,41 @@ This package is open-sourced software licensed under the MIT license.
 
 Developed by Jonston
 
+## Artisan Commands
+
+Clever Bot provides several artisan commands to help you manage the package:
+
+### Install Command
+
+Publish the configuration file and display setup instructions:
+
+```bash
+php artisan clever-bot:install
+```
+
+This command will:
+- Publish the `config/clever-bot.php` configuration file
+- Display next steps for configuration
+
+### Test Connection Command
+
+Test your API connection to verify your configuration:
+
+```bash
+# Test the default provider
+php artisan clever-bot:test
+
+# Test a specific provider
+php artisan clever-bot:test openai
+php artisan clever-bot:test anthropic
+php artisan clever-bot:test gemini
+```
+
+This command will:
+- Validate your API key configuration
+- Send a test request to the AI provider
+- Display the response or error message
+
 ## Testing
 
 ### Setup
@@ -396,6 +649,30 @@ Developed by Jonston
    ```
 
 ### Running Tests
+
+#### PHPUnit Tests (Laravel Integration)
+
+The package includes a comprehensive PHPUnit test suite for Laravel integration:
+
+```bash
+# Run all tests
+composer test
+
+# Or use phpunit directly
+./vendor/bin/phpunit
+
+# Run with detailed output
+./vendor/bin/phpunit --testdox
+```
+
+Test coverage includes:
+- Service provider registration and bindings
+- Configuration loading and merging
+- Facade functionality
+- Event dispatching
+- Command registration
+
+#### Legacy Tests (Standalone PHP)
 
 Run individual model tests:
 ```bash
