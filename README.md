@@ -290,6 +290,63 @@ return [
 ];
 ```
 
+## Tools Configuration
+
+### Automatic Tool Registration
+
+Register tools in `config/clever-bot.php` to make them available to all agents automatically:
+
+```php
+'tools' => [
+    \App\CleverBot\Tools\GetWeatherTool::class,
+    \App\CleverBot\Tools\SearchTool::class,
+    
+    // With constructor parameters:
+    \App\CleverBot\Tools\DatabaseQueryTool::class => [
+        'connection' => 'mysql',
+        'max_results' => 100,
+    ],
+],
+```
+
+### Tool Presets
+
+Create named tool sets for different use cases:
+
+```php
+'tool_presets' => [
+    'support' => [
+        \App\CleverBot\Tools\GetOrderStatusTool::class,
+        \App\CleverBot\Tools\CreateTicketTool::class,
+    ],
+],
+```
+
+Usage:
+
+```php
+// Default agent with all tools from config
+public function __construct(private Agent $agent) {}
+
+// Agent with specific preset
+public function __construct(ToolRegistryBuilder $builder, ModelInterface $model)
+{
+    $toolRegistry = $builder->buildFromConfig('support');
+    
+    $this->agent = new Agent(
+        name: 'support-bot',
+        model: $model,
+        toolRegistry: $toolRegistry,
+        messageManager: new MessageManager(50, 4000),
+        config: new AgentConfig()
+    );
+}
+```
+
+### Creating Custom Tools
+
+See existing examples in `src/Tools/Examples/` directory.
+
 ## Standalone PHP Usage
 
 ### Basic Usage
