@@ -2,6 +2,7 @@
     "name": "jonston/clever-bot",
     "description": "Laravel AI Agent package with multi-model support",
     "type": "library",
+    "license": "MIT",
     "require": {
         "php": "^8.1",
         "illuminate/support": "^10.0|^11.0",
